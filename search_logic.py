@@ -140,7 +140,7 @@ class Rule34Search(SearchEngine):
         self.headers['User-Agent'] = f'Mozilla/5.0 (Random{random.randint(1,999)})' # Randomize slightly
 
     def _fetch_more(self):
-        # API is blocked, using HTML scraping
+        # Using HTML scraping as it is more reliable for public access without API keys
         url = "https://rule34.xxx/index.php" 
         params = {
             'page': 'post',
@@ -167,12 +167,26 @@ class Rule34Search(SearchEngine):
             # Regex for <a id="..." href="([^"]+)">\s*<img src="([^"]+)"
             # Note: href is relative often.
             
-            items = re.findall(r'<a[^>]+href="([^"]+)"[^>]*>\s*<img[^>]+src="([^"]+)"', res.text)
+            # Robust regex for <a><img> structure
+            # Finds span with class thumb, then extracts href and src
+            # Handles newlines and different attribute orders
+            # <span ... class="thumb" ...> <a ... href="..."> <img ... src="...">
+            
+            thumb_spans = re.findall(r'<span[^>]*class="thumb"[^>]*>.*?</span>', res.text, re.DOTALL)
             
             formatted = []
             seen_ids = set()
             
-            for href, src in items:
+            for span in thumb_spans:
+                # Extract href (view page)
+                m_href = re.search(r'<a[^>]+href="([^"]+)"', span)
+                if not m_href: continue
+                href = m_href.group(1)
+                
+                # Extract src (thumbnail)
+                m_src = re.search(r'<img[^>]+src="([^"]+)"', span)
+                if not m_src: continue
+                src = m_src.group(1)
                 if 'page=post&s=view' not in href: continue
                 
                 # Construct absolute URL

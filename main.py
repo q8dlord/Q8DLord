@@ -20,8 +20,9 @@ from kivy.loader import Loader
 # This fixes the "X" (403 Forbidden) on many sites that block default python/urllib agents
 Loader.headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Referer': 'https://www.google.com/'
+    # 'Referer': 'https://www.google.com/' # Removed to prevent hotlink blocking
 }
+
 
 # Import our pure python logic
 from search_logic import get_engine
@@ -210,7 +211,13 @@ class RootWidget(BoxLayout):
                 # OR <source src="..."> for video? (We only do images for now)
                 
                 # Rule34: <img src="..." id="image" ...>
+                # Using a more flexible regex to find the main image
+                # Standard Rule34 view page has id="image"
                 m = re.search(r'<img[^>]+src="([^"]+)"[^>]*id="image"', res.text)
+                if not m:
+                    # Fallback: look for generic larger image or video source (if needed later)
+                    m = re.search(r'<img[^>]+id="image"[^>]+src="([^"]+)"', res.text)
+                
                 if m:
                     real_url = m.group(1)
                     # Handle relative
@@ -221,6 +228,8 @@ class RootWidget(BoxLayout):
                     item['image'] = real_url # update both
                     item['is_resolvable'] = False
                     return real_url
+                else:
+                     print("Failed to find image ID in view page.")
             except Exception as e:
                 print(f"Resolution failed: {e}")
         return url
