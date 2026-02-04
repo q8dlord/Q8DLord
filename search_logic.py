@@ -131,102 +131,45 @@ class DuckDuckGoSearch(SearchEngine):
             print(f"DDG Error: {e}")
             return []
 
+from api_client import CLIENT
+
 class Rule34Search(SearchEngine):
     def __init__(self, query, size=None):
-        # Rule34 doesn't need "wallpaper" appended, uses tags
-        super().__init__(query, size) # Still call super to set defaults
-        self.query = query # Revert to raw query (tags)
+        super().__init__(query, size)
+        self.query = query # Tags
         self.page = 0
-        self.headers['User-Agent'] = f'Mozilla/5.0 (Random{random.randint(1,999)})' # Randomize slightly
 
     def _fetch_more(self):
-        # Using HTML scraping as it is more reliable for public access without API keys
-        url = "https://rule34.xxx/index.php" 
-        params = {
-            'page': 'post',
-            's': 'list',
-            'tags': self.query,
-            'pid': self.page * 42 # pid is offset by count usually (42 per page default?)
-            # Actually standard layout might be 42 or 20. Let's assume pid is page index * 20 for API, 
-            # but for HTML 'pid' is usually the *offset* count. 
-            # Let's try to detect if we need page number or offset.
-            # HTML pagination: index.php?page=post&s=list&tags=...&pid=42
-        }
-        # Override pid logic for HTML
-        params['pid'] = self.page * 42
-
-        try:
-            res = requests.get(url, params=params, headers=self.headers, timeout=10)
+        # Use the rate-limited client
+        data = CLIENT.search(self.query, page=self.page)
+        
+        formatted = []
+        for item in data:
+            # API returns fields: file_url, preview_url, score, etc.
+            # Handle potential missing fields
+            if 'file_url' not in item: continue
             
-            # Parsing HTML
-            # <span class="thumb" ...><a href="..."> <img src="..."> </a></span>
+            # API URL might be http, upgrading to https
+            full_url = item.get('file_url', '').replace('http:', 'https:')
+            thumb_url = item.get('preview_url', '').replace('http:', 'https:')
             
-            # Find all thumb spans to keep order
-            # simpler approach: find all (view_url, thumb_url) pairs
+            # If thumb is missing, use full (dangerous for bandwidth but better than nothing)
+            if not thumb_url: thumb_url = full_url
             
-            # Regex for <a id="..." href="([^"]+)">\s*<img src="([^"]+)"
-            # Note: href is relative often.
+            formatted.append({
+                'image': full_url,
+                'thumbnail': thumb_url,
+                'title': f"Score: {item.get('score', 0)}",
+                'source': 'Rule34',
+                'url': full_url, # Direct link
+                'is_resolvable': False # API gives direct links!
+            })
             
-            # Robust regex for <a><img> structure
-            # Finds span with class thumb, then extracts href and src
-            # Handles newlines and different attribute orders
-            # <span ... class="thumb" ...> <a ... href="..."> <img ... src="...">
-            
-            thumb_spans = re.findall(r'<span[^>]*class="thumb"[^>]*>.*?</span>', res.text, re.DOTALL)
-            
-            formatted = []
-            seen_ids = set()
-            
-            for span in thumb_spans:
-                # Extract href (view page)
-                m_href = re.search(r'<a[^>]+href="([^"]+)"', span)
-                if not m_href: continue
-                href = m_href.group(1)
-                
-                # Extract src (thumbnail)
-                m_src = re.search(r'<img[^>]+src="([^"]+)"', span)
-                if not m_src: continue
-                src = m_src.group(1)
-                if 'page=post&s=view' not in href: continue
-                
-                # Construct absolute URL
-                if href.startswith('/'):
-                    view_url = "https://rule34.xxx" + href
-                else:
-                    view_url = "https://rule34.xxx/" + href
-                    
-                # Basic ID extraction for uniqueness
-                # id=12345
-                m_id = re.search(r'id=(\d+)', view_url)
-                if m_id:
-                    if m_id.group(1) in seen_ids: continue
-                    seen_ids.add(m_id.group(1))
-                
-                # Thumb URL
-                # src might be "thumbnails/..." or full image if preview
-                thumb_url = src
-                if not thumb_url.startswith('http'):
-                    thumb_url = "https://rule34.xxx/" + thumb_url.lstrip('/')
-
-                # For Rule34, we CANNOT easily guess the full image URL without hashing.
-                # So we set 'image' = view_url, and let the UI resolve it on click.
-                # We flag it internally if possible, or just detect by string.
-                
-                formatted.append({
-                    'image': view_url, # To be resolved
-                    'thumbnail': thumb_url, 
-                    'title': f"Rule34 {m_id.group(1) if m_id else ''}",
-                    'source': 'Rule34',
-                    'url': view_url,
-                    'is_resolvable': True # Hint for main.py
-                })
-
-            if not formatted: return []
+        if formatted:
             self.page += 1
-            return formatted
-        except Exception as e:
-            print(f"Rule34 Error: {e}")
-            return []
+            
+        return formatted
+
 
 class YandexSearch(SearchEngine):
     def __init__(self, query, size=None):

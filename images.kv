@@ -1,177 +1,151 @@
-
 #:import Factory kivy.factory.Factory
 
 <ImageCard>:
     orientation: 'vertical'
     size_hint_y: None
-    height: "280dp"
-    padding: "0dp"
-    spacing: "0dp"
+    height: "300dp"
+    padding: "5dp"
+    spacing: "5dp"
     
-    # Card Background
+    # Card Background with Shadow-like effect
     canvas.before:
         Color:
             rgba: (0.2, 0.2, 0.2, 1) if not self.selected else (0.3, 0.4, 0.6, 1)
         RoundedRectangle:
             pos: self.pos
             size: self.size
-            radius: [15,]
+            radius: [10,]
 
-    # Image Area
+    # --- TOP: Image Area (Click to View) ---
     RelativeLayout:
-        size_hint_y: 0.8
+        size_hint_y: 0.85
         
-        # Main Click Area (Opens Viewer)
-        Button:
-            background_color: 0,0,0,0
-            size_hint: 1, 1
-            on_release: root.on_card_click()
-
+        # The Image Itself
         AsyncImage:
             source: root.thumbnail
             allow_stretch: True
-            keep_ratio: True 
-            nocache: False 
-            fit_mode: "contain" 
+            keep_ratio: True
+            nocache: False
+            fit_mode: "contain"
             pos_hint: {'center_x': 0.5, 'center_y': 0.5}
-            
-        # Loading Spinner (optional, if we want to get fancy, but simple placeholder color is native)
-        # Use standard loading image if needed
 
+        # Invisible Button covering ONLY the image area for viewing
+        Button:
+            background_color: 0, 0, 0, 0
+            size_hint: 1, 1
+            pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+            on_release: root.on_image_click()
 
-        # Selection Checkbox Overlay
+        # Selection Checkbox (Top Right, clearly visible)
         CheckBox:
             size_hint: None, None
-            size: "40dp", "40dp"
+            size: "48dp", "48dp"
             pos_hint: {'top': 1, 'right': 1}
             active: root.selected
             on_active: root.on_checkbox_active(self, self.active)
+            canvas.before:
+                Color:
+                    rgba: 0, 0, 0, 0.5 # tiny dimmed background for checkbox visibility
+                Ellipse:
+                    pos: self.pos
+                    size: self.size
 
-    # Info Area
+    # --- BOTTOM: Info Area ---
     BoxLayout:
-        size_hint_y: 0.2
+        size_hint_y: 0.15
         orientation: 'vertical'
-        padding: "8dp"
+        padding: "2dp"
         
         Label:
             text: root.source
-            font_size: "14sp"
-            bold: True
+            font_size: "12sp"
+            color: 0.7, 0.7, 0.7, 1
+            text_size: self.size
             halign: 'left'
             valign: 'middle'
-            text_size: self.size
-            color: (0.9, 0.9, 0.9, 1)
 
 <RootWidget>:
     orientation: 'vertical'
     canvas.before:
         Color:
-            rgba: 0.12, 0.12, 0.12, 1 # Dark background
+            rgba: 0.1, 0.1, 0.1, 1
         Rectangle:
             pos: self.pos
             size: self.size
 
-    # --- Top App Bar ---
-    BoxLayout:
-        size_hint_y: None
-        height: "120dp" # Taller to accommodate 2 rows
-        orientation: 'vertical'
-        padding: "12dp"
-        spacing: "8dp"
-        canvas.before:
-            Color:
-                rgba: 0.18, 0.18, 0.18, 1
-            Rectangle:
-                pos: self.pos
-                size: self.size
-            # Shadow line
-            Color:
-                rgba: 0, 0, 0, 0.3
-            Rectangle:
-                pos: self.pos[0], self.y
-                size: self.width, dp(2)
-
-        # Row 1: Search Input & Go
-        BoxLayout:
-            spacing: "10dp"
-            size_hint_y: 0.5
-            
-            TextInput:
-                id: search_input
-                hint_text: "Search for high quality images..."
-                multiline: False
-                write_tab: False # Fix for some android keyboards
-                input_type: 'text' # Helps with predictive text lag
-                font_size: "18sp"
-                padding_y: [self.height / 2.0 - (self.line_height / 2.0) * len(self._lines), 0]
-                background_normal: ''
-                background_active: ''
-                background_color: 0.25, 0.25, 0.25, 1
-                foreground_color: 1, 1, 1, 1
-                cursor_color: 1, 1, 1, 1
-                size_hint_x: 0.8
-                on_text_validate: root.do_search()
-                # Rounded corners for input would need custom canvas, sticking to flat for now
-
-            Button:
-                text: "GO"
-                size_hint_x: 0.2
-                font_size: "16sp"
-                bold: True
-                background_normal: ''
-                background_color: 0.3, 0.6, 1, 1 # Blue accent
-                color: 1, 1, 1, 1
-                on_release: root.do_search()
-
-        # Row 2: Filters (Engine & Size)
-        BoxLayout:
-            spacing: "10dp"
-            size_hint_y: 0.5
-            
-            Spinner:
-                id: engine_spinner
-                text: 'Bing'
-                values: ('Bing', 'DuckDuckGo', 'Rule34', 'Yandex')
-                size_hint_x: 0.5
-                background_normal: ''
-                background_color: 0.25, 0.25, 0.25, 1
-                color: 0.8, 0.8, 0.8, 1
-
-            Spinner:
-                id: size_spinner
-                text: 'Any Size'
-                values: ('Any Size', 'Large', 'Wallpaper', '2k', '4k', '8k')
-                size_hint_x: 0.5
-                background_normal: ''
-                background_color: 0.25, 0.25, 0.25, 1
-                color: 0.8, 0.8, 0.8, 1
-
-    # --- Results Grid ---
-    RecycleView:
-        id: rv
-        viewclass: 'ImageCard'
-        scroll_type: ['bars', 'content']
-        bar_width: "8dp"
-        bar_color: 0.4, 0.4, 0.4, 0.8
-        
-        RecycleGridLayout:
-            default_size: None, dp(280)
-            default_size_hint: 1, None
-            size_hint_y: None
-            height: self.minimum_height
-            cols: 2 
-            spacing: "12dp"
-            padding: "12dp"
-
-    # --- Bottom Actions ---
+    # Header
     BoxLayout:
         size_hint_y: None
         height: "60dp"
         padding: "10dp"
-        spacing: "15dp"
+        spacing: "10dp"
         canvas.before:
             Color:
-                rgba: 0.18, 0.18, 0.18, 1
+                rgba: 0.15, 0.15, 0.15, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        
+        TextInput:
+            id: search_input
+            hint_text: "Search..."
+            multiline: False
+            size_hint_x: 0.6
+            background_color: 0.2, 0.2, 0.2, 1
+            foreground_color: 1, 1, 1, 1
+            on_text_validate: root.do_search()
+            
+        Button:
+            text: "GO"
+            size_hint_x: 0.2
+            background_color: 0.2, 0.6, 1, 1
+            bold: True
+            on_release: root.do_search()
+
+    # Filters
+    BoxLayout:
+        size_hint_y: None
+        height: "50dp"
+        padding: "5dp"
+        spacing: "5dp"
+        
+        Spinner:
+            id: engine_spinner
+            text: 'Rule34'
+            values: ('Rule34', 'Bing', 'DuckDuckGo')
+            background_color: 0.25, 0.25, 0.25, 1
+            
+        Spinner:
+            id: size_spinner
+            text: 'Any Size'
+            values: ('Any Size', 'Wallpaper', '4k')
+            background_color: 0.25, 0.25, 0.25, 1
+
+    # Grid
+    RecycleView:
+        id: rv
+        viewclass: 'ImageCard'
+        scroll_type: ['bars', 'content']
+        bar_width: "10dp"
+        
+        RecycleGridLayout:
+            default_size: None, dp(300)
+            default_size_hint: 1, None
+            size_hint_y: None
+            height: self.minimum_height
+            cols: 2 # 2 columns usually best for phone
+            spacing: "10dp"
+            padding: "10dp"
+
+    # Footer Actions
+    BoxLayout:
+        size_hint_y: None
+        height: "60dp"
+        padding: "5dp"
+        spacing: "10dp"
+        canvas.before:
+            Color:
+                rgba: 0.15, 0.15, 0.15, 1
             Rectangle:
                 pos: self.pos
                 size: self.size
@@ -179,15 +153,13 @@
         Button:
             id: load_more_btn
             text: "Load More"
+            disabled: True
             on_release: root.load_more()
-            background_normal: ''
             background_color: 0.3, 0.3, 0.3, 1
-            opacity: 0 if not root.has_results else 1
-            disabled: not root.has_results
 
         Button:
             id: download_btn
             text: "Download (0)"
-            on_release: root.download_selected()
-            background_color: 0.2, 0.7, 0.3, 1 # Green
             disabled: True
+            background_color: 0.2, 0.8, 0.2, 1
+            on_release: root.download_selected()
