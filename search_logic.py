@@ -11,7 +11,10 @@ class SearchEngine:
         self.size = size
         self.query = self._format_query(query, size)
         self.offset = 0
-        self.headers = HEADERS.copy()
+        self.offset = 0
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
         
     def _format_query(self, query, size):
         """Appends size terms for generic engines."""

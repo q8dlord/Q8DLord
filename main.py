@@ -133,24 +133,31 @@ try:
             self.selected_indices = set()
             
         def do_search(self):
-            query = self.ids.search_input.text.strip()
-            engine_name = self.ids.engine_spinner.text
-            size_val = self.ids.size_spinner.text
-            if not query: return
-            
-            self.ids.rv.data = []
-            self.current_results = []
-            self.selected_indices = set()
-            self.update_download_btn()
-            self.has_results = False
-            
-            e_norm = engine_name.lower()
-            if e_norm == 'rule34': e_norm = 'rule34'
-            elif e_norm == 'duckduckgo': e_norm = 'ddg'
-            else: e_norm = 'bing'
-            
-            self.engine = get_engine(e_norm, query, size=size_val if size_val != 'Any Size' else None)
-            self.load_more()
+            try:
+                query = self.ids.search_input.text.strip()
+                engine_name = self.ids.engine_spinner.text
+                size_val = self.ids.size_spinner.text
+                if not query: return
+                
+                self.ids.rv.data = []
+                self.current_results = []
+                self.selected_indices = set()
+                self.update_download_btn()
+                self.has_results = False
+                
+                e_norm = engine_name.lower()
+                if e_norm == 'rule34': e_norm = 'rule34'
+                elif e_norm == 'duckduckgo': e_norm = 'ddg'
+                else: e_norm = 'bing'
+                
+                self.engine = get_engine(e_norm, query, size=size_val if size_val != 'Any Size' else None)
+                self.load_more()
+            except Exception as e:
+                # Show Error Popup
+                p = Popup(title='Search Error', size_hint=(0.8, 0.4))
+                p.content = Label(text=str(e), text_size=(p.width-20, None), valign='middle')
+                p.open()
+                print(f"Search Crash: {e}")
             
         def load_more(self):
             if not self.engine: return
