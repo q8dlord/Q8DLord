@@ -1,6 +1,7 @@
 import requests
 import re
 import json
+import random
 
 # Global headers to mimic a browser
 HEADERS = {
@@ -8,14 +9,24 @@ HEADERS = {
 }
 
 class SearchEngine:
-    def __init__(self, query):
-        self.query = query
+    def __init__(self, query, size=None):
+        self.original_query = query
+        self.size = size
+        self.query = self._format_query(query, size)
         self.offset = 0
         self.headers = HEADERS.copy()
-        self._buffer = []
+        
+    def _format_query(self, query, size):
+        """Appends size terms for generic engines."""
+        if not size or size == "Any":
+            return query
+        if size == "Wallpaper":
+            return f"{query} wallpaper"
+        if size in ["2k", "4k", "8k"]:
+            return f"{query} {size} wallpaper"
+        return f"{query} {size}"
 
     def fetch_next_batch(self):
-        """Returns a list of result dicts or empty list."""
         try:
             return self._fetch_more()
         except Exception as e:
@@ -26,23 +37,24 @@ class SearchEngine:
         raise NotImplementedError
 
 class BingImageSearch(SearchEngine):
-    def __init__(self, query):
-        super().__init__(query)
-        self.offset = 1 # Bing starts at 1
+    def __init__(self, query, size=None):
+        super().__init__(query, size)
+        self.offset = 1 
 
     def _fetch_more(self):
         if self.offset > 1000: return []
         
         url = "https://www.bing.com/images/search"
+        # adlt=off disables SafeSearch
         params = {
             'q': self.query,
             'form': 'HDRSC2',
             'first': self.offset,
-            'scenario': 'ImageBasicHover'
+            'scenario': 'ImageBasicHover',
+            'adlt': 'off' 
         }
         
         try:
-            print(f"Fetching Bing offset {self.offset}...")
             resp = requests.get(url, params=params, headers=self.headers, timeout=10)
             
             links = re.findall(r'murl&quot;:&quot;([^&]+)&quot;', resp.text)
@@ -63,20 +75,21 @@ class BingImageSearch(SearchEngine):
             self.offset += len(formatted_results)
             return formatted_results
         except Exception as e:
-            print(f"Bing search error: {e}")
+            print(f"Bing Error: {e}")
             return []
 
 class DuckDuckGoSearch(SearchEngine):
-    def __init__(self, query):
-        super().__init__(query)
+    def __init__(self, query, size=None):
+        super().__init__(query, size)
         self.headers['Referer'] = 'https://duckduckgo.com/'
 
     def _fetch_more(self):
         if self.offset > 0: return []
         
         try:
-            print("Fetching DDG VQD...")
-            res = requests.get('https://duckduckgo.com/', params={'q': self.query}, headers=self.headers)
+            # First request to get VQD (safe search off might need params here too)
+            # kp=-2 (SafeSearch Off)
+            res = requests.get('https://duckduckgo.com/', params={'q': self.query, 'kp': '-2'}, headers=self.headers)
             
             vqd = None
             m = re.search(r'vqd=[\'"]([^\'"]+)[\'"]', res.text)
@@ -91,7 +104,8 @@ class DuckDuckGoSearch(SearchEngine):
                 'q': self.query,
                 'vqd': vqd,
                 'f': ',,,',
-                'p': '1'
+                'p': '1',
+                'kp': '-2' # Force SafeSearch Off
             }
             self.headers['Referer'] = 'https://duckduckgo.com/'
             res = requests.get(url, params=params, headers=self.headers)
@@ -118,11 +132,15 @@ class DuckDuckGoSearch(SearchEngine):
             return []
 
 class Rule34Search(SearchEngine):
-    def __init__(self, query):
-        super().__init__(query)
+    def __init__(self, query, size=None):
+        # Rule34 doesn't need "wallpaper" appended, uses tags
+        super().__init__(query, size) # Still call super to set defaults
+        self.query = query # Revert to raw query (tags)
         self.page = 0
+        self.headers['User-Agent'] = f'Mozilla/5.0 (Random{random.randint(1,999)})' # Randomize slightly
 
     def _fetch_more(self):
+        # Using main domain for API access
         url = "https://rule34.xxx/index.php" 
         params = {
             'page': 'dapi',
@@ -135,7 +153,6 @@ class Rule34Search(SearchEngine):
         }
         
         try:
-            print(f"Fetching Rule34 page {self.page}...")
             res = requests.get(url, params=params, headers=self.headers, timeout=10)
             
             if not res.text.strip(): return []
@@ -147,9 +164,11 @@ class Rule34Search(SearchEngine):
             if isinstance(data, list):
                 for item in data:
                     if isinstance(item, dict):
+                        # Use 'sample_url' for better loading in grid if available, else file_url
+                        # Ideally: Thumbnail = preview_url, Full = file_url
                          formatted.append({
-                            'image': item.get('file_url'),
-                            'thumbnail': item.get('preview_url'),
+                            'image': item.get('file_url'), # Full res for download/view
+                            'thumbnail': item.get('sample_url', item.get('file_url')), # Sample for grid (faster loading)
                             'title': f"Score: {item.get('score', 0)}",
                             'source': 'Rule34',
                             'url': f"https://rule34.xxx/index.php?page=post&s=view&id={item.get('id')}"
@@ -163,23 +182,30 @@ class Rule34Search(SearchEngine):
             return []
 
 class YandexSearch(SearchEngine):
-    def __init__(self, query):
-        super().__init__(query)
+    def __init__(self, query, size=None):
+        super().__init__(query, size)
         self.page = 0
 
     def _fetch_more(self):
         if self.page > 0: return []
         
         url = f"https://yandex.com/images/search"
+        # text=query, isize=eq (?), hidden params for safe search?
+        # Yandex safe search is usually a cookie or setting.
+        # Try adding 'must=true' or similar. 
+        # Actually in scraping, just adding terms like "uncensored" helps if user typed it.
+        # We rely on query mainly.
+        
         params = {'text': self.query}
         try:
              res = requests.get(url, params=params, headers=self.headers, timeout=10)
              matches = re.findall(r'"hh?tps?://[^"]+"', res.text)
+             # Filter more strictly for images
              images = [m.strip('"') for m in matches if any(x in m for x in ['.jpg', '.png', '.jpeg']) and 'avatars.mds.yandex.net' not in m]
              images = list(set(images))
              
              formatted = []
-             for img in images[:30]:
+             for img in images[:40]: # increased limit
                   formatted.append({
                       'image': img,
                       'thumbnail': img,
@@ -193,8 +219,8 @@ class YandexSearch(SearchEngine):
         except Exception as e:
             return []
 
-def get_engine(name, query):
-    if name == 'ddg': return DuckDuckGoSearch(query)
-    if name == 'rule34': return Rule34Search(query)
-    if name == 'yandex': return YandexSearch(query)
-    return BingImageSearch(query)
+def get_engine(name, query, size=None):
+    if name == 'ddg': return DuckDuckGoSearch(query, size)
+    if name == 'rule34': return Rule34Search(query, size)
+    if name == 'yandex': return YandexSearch(query, size)
+    return BingImageSearch(query, size)

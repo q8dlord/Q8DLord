@@ -4,7 +4,7 @@ import requests
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import StringProperty, BooleanProperty, ListProperty
+from kivy.properties import StringProperty, BooleanProperty
 from kivy.clock import Clock
 from kivy.utils import platform
 
@@ -37,24 +37,31 @@ class RootWidget(BoxLayout):
     def do_search(self):
         query = self.ids.search_input.text.strip()
         engine_name = self.ids.engine_spinner.text.lower()
+        size_val = self.ids.size_spinner.text
+        
         if not query: return
+        
+        # Clean "Any Size" to None
+        if size_val == "Any Size": size_val = None
 
-        # Reset
+        # Reset UI
         self.ids.rv.data = []
         self.results_data = []
         self.selected_urls.clear()
         self.update_download_btn()
+        self.has_results = False
         
         # Init engine
-        if engine_name == 'rule34': engine_name = 'rule34' # spinner text match
-        self.engine = get_engine(engine_name, query)
+        if engine_name == 'rule34': engine_name = 'rule34' 
+        self.engine = get_engine(engine_name, query, size=size_val)
         
         self.load_more()
 
     def load_more(self):
         if not self.engine: return
+        self.ids.load_more_btn.text = "Loading..."
+        self.ids.load_more_btn.disabled = True
         
-        # Run in thread
         threading.Thread(target=self._fetch_thread, daemon=True).start()
 
     def _fetch_thread(self):
@@ -63,14 +70,17 @@ class RootWidget(BoxLayout):
         Clock.schedule_once(lambda dt: self._update_ui_results(new_items))
 
     def _update_ui_results(self, new_items):
+        self.ids.load_more_btn.text = "Load More"
+        self.ids.load_more_btn.disabled = False
+        
         if not new_items:
-            # Maybe show toast?
+            # Maybe show toast or label
             pass
         
         for item in new_items:
             self.results_data.append({
                 'thumbnail': item.get('thumbnail'),
-                'image_url': item.get('image'),
+                'image_url': item.get('image'), # Full res
                 'source': item.get('source'),
                 'selected': False
             })
@@ -87,7 +97,7 @@ class RootWidget(BoxLayout):
 
     def update_download_btn(self):
         count = len(self.selected_urls)
-        self.ids.download_btn.text = f"Download Selected ({count})"
+        self.ids.download_btn.text = f"Download ({count})"
         self.ids.download_btn.disabled = count == 0
 
     def download_selected(self):
@@ -101,8 +111,6 @@ class RootWidget(BoxLayout):
         # Determine download path
         if platform == 'android':
             from android.storage import primary_external_storage_path
-            msg = "Downloading..."
-            # Simple path: /sdcard/Download/ImageSearch
             path = os.path.join(primary_external_storage_path(), 'Download', 'ImageSearch')
         else:
             path = os.path.join(os.getcwd(), 'downloads')
@@ -111,11 +119,14 @@ class RootWidget(BoxLayout):
             try:
                 os.makedirs(path)
             except:
-                pass # Can fail on android if not permitted yet
+                pass 
         
         count = 0
         for url in urls:
             try:
+                # Use a proper User-Agent for downloading too, some sites block defaults
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                
                 filename = url.split('/')[-1].split('?')[0]
                 if not filename: filename = f"img_{count}.jpg"
                 if '.' not in filename: filename += ".jpg"
@@ -125,10 +136,12 @@ class RootWidget(BoxLayout):
                 
                 save_path = os.path.join(path, filename)
                 
-                r = requests.get(url, timeout=20)
-                if r.status_code == 200:
+                # Stream download for large files
+                with requests.get(url, stream=True, headers=headers, timeout=20) as r:
+                    r.raise_for_status()
                     with open(save_path, 'wb') as f:
-                        f.write(r.content)
+                        for chunk in r.iter_content(chunk_size=8192):
+                            f.write(chunk)
                     count += 1
             except Exception as e:
                 print(f"Download error: {e}")
@@ -136,9 +149,13 @@ class RootWidget(BoxLayout):
         Clock.schedule_once(lambda dt: self._finish_download(count))
 
     def _finish_download(self, count):
-        self.ids.download_btn.text = f"Downloaded {count} files"
+        self.ids.download_btn.text = f"Saved {count} images"
         self.ids.download_btn.disabled = False
-        # Clear selection logic if desired, or keep it
+        # Optional: Reset selection after download
+        # self.selected_urls.clear()
+        # for i in self.results_data: i['selected'] = False
+        # self.ids.rv.data = self.results_data
+        # self.update_download_btn()
 
 class ImageSearchApp(App):
     def build(self):
