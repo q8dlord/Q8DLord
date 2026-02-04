@@ -164,16 +164,16 @@ class Rule34Search(SearchEngine):
             if isinstance(data, list):
                 for item in data:
                     if isinstance(item, dict):
-                        # Use 'sample_url' for better loading in grid if available, else file_url
-                        # Ideally: Thumbnail = preview_url, Full = file_url
-                         formatted.append({
-                            'image': item.get('file_url'), # Full res for download/view
-                            'thumbnail': item.get('sample_url', item.get('file_url')), # Sample for grid (faster loading)
+                        # Use 'preview_url' for the grid - MUCH faster
+                        # 'file_url' is the full HD image
+                        formatted.append({
+                            'image': item.get('file_url'),
+                            'thumbnail': item.get('preview_url', item.get('sample_url')), 
                             'title': f"Score: {item.get('score', 0)}",
                             'source': 'Rule34',
                             'url': f"https://rule34.xxx/index.php?page=post&s=view&id={item.get('id')}"
                         })
-            
+
             if not formatted: return []
             self.page += 1
             return formatted
@@ -185,30 +185,29 @@ class YandexSearch(SearchEngine):
     def __init__(self, query, size=None):
         super().__init__(query, size)
         self.page = 0
+        # Mobile UA sometimes gets easier HTML or different handling
+        self.headers['User-Agent'] = "Mozilla/5.0 (Linux; Android 10; SM-G960U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Mobile Safari/537.36"
 
     def _fetch_more(self):
         if self.page > 0: return []
         
         url = f"https://yandex.com/images/search"
-        # text=query, isize=eq (?), hidden params for safe search?
-        # Yandex safe search is usually a cookie or setting.
-        # Try adding 'must=true' or similar. 
-        # Actually in scraping, just adding terms like "uncensored" helps if user typed it.
-        # We rely on query mainly.
-        
-        params = {'text': self.query}
+        # Force safe search off? Yandex is tricky. 
+        # Adding 'family=no' is a common param for some engines, worth a try.
+        params = {'text': self.query, 'family': 'no'} 
         try:
              res = requests.get(url, params=params, headers=self.headers, timeout=10)
+             # Regex update for mobile or desktop
+             # Looking for img_href or similar in JSON data blobs
              matches = re.findall(r'"hh?tps?://[^"]+"', res.text)
-             # Filter more strictly for images
              images = [m.strip('"') for m in matches if any(x in m for x in ['.jpg', '.png', '.jpeg']) and 'avatars.mds.yandex.net' not in m]
              images = list(set(images))
              
              formatted = []
-             for img in images[:40]: # increased limit
+             for img in images[:40]:
                   formatted.append({
                       'image': img,
-                      'thumbnail': img,
+                      'thumbnail': img, # Yandex scrape doesn't give separate thumb easily yet
                       'title': 'Yandex Result',
                       'source': 'Yandex',
                       'url': img

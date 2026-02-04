@@ -33,6 +33,10 @@
             nocache: False 
             fit_mode: "contain" 
             pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+            
+        # Loading Spinner (optional, if we want to get fancy, but simple placeholder color is native)
+        # Use standard loading image if needed
+
 
         # Selection Checkbox Overlay
         CheckBox:
@@ -95,6 +99,8 @@
                 id: search_input
                 hint_text: "Search for high quality images..."
                 multiline: False
+                write_tab: False # Fix for some android keyboards
+                input_type: 'text' # Helps with predictive text lag
                 font_size: "18sp"
                 padding_y: [self.height / 2.0 - (self.line_height / 2.0) * len(self._lines), 0]
                 background_normal: ''
