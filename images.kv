@@ -21,15 +21,16 @@
     RelativeLayout:
         size_hint_y: 0.8
         
+        # Click area for viewer
+        Button:
+            background_color: 0,0,0,0
+            size_hint: 1, 1
+            on_release: root.on_card_click()
+
         AsyncImage:
             source: root.thumbnail
             allow_stretch: True
-            keep_ratio: True # changed to True to avoid ugly stretching, might leave black bars
-            # To fill the card, we might need keep_ratio=False but it distorts.
-            # Let's try keep_ratio=False with "cover" behavior if we could, 
-            # but standard AsyncImage is simple. Let's stick to True for quality.
-            
-            # Use 'nocache: True' if you want fresh reloads, but False caches for speed.
+            keep_ratio: True 
             nocache: False 
             fit_mode: "contain" 
             pos_hint: {'center_x': 0.5, 'center_y': 0.5}
