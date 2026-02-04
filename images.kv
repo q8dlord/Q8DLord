@@ -3,24 +3,21 @@
 <ImageCard>:
     orientation: 'vertical'
     size_hint_y: None
-    height: "300dp"
-    padding: "5dp"
-    spacing: "5dp"
+    height: "280dp"
+    padding: "4dp"
+    spacing: "2dp"
     
-    # Card Background with Shadow-like effect
     canvas.before:
         Color:
-            rgba: (0.2, 0.2, 0.2, 1) if not self.selected else (0.3, 0.4, 0.6, 1)
+            rgba: (0.2, 0.2, 0.2, 1) if not self.selected else (0.2, 0.5, 0.8, 1)
         RoundedRectangle:
             pos: self.pos
             size: self.size
-            radius: [10,]
+            radius: [8,]
 
-    # --- TOP: Image Area (Click to View) ---
     RelativeLayout:
         size_hint_y: 0.85
         
-        # The Image Itself
         AsyncImage:
             source: root.thumbnail
             allow_stretch: True
@@ -29,40 +26,36 @@
             fit_mode: "contain"
             pos_hint: {'center_x': 0.5, 'center_y': 0.5}
 
-        # Invisible Button covering ONLY the image area for viewing
+        # Main Click -> Open Viewer
         Button:
             background_color: 0, 0, 0, 0
             size_hint: 1, 1
-            pos_hint: {'center_x': 0.5, 'center_y': 0.5}
             on_release: root.on_image_click()
 
-        # Selection Checkbox (Top Right, clearly visible)
+        # Checkbox -> Selection
         CheckBox:
             size_hint: None, None
-            size: "48dp", "48dp"
+            size: "40dp", "40dp"
             pos_hint: {'top': 1, 'right': 1}
             active: root.selected
             on_active: root.on_checkbox_active(self, self.active)
             canvas.before:
-                Color:
-                    rgba: 0, 0, 0, 0.5 # tiny dimmed background for checkbox visibility
+                Color: 
+                    rgba: 0, 0, 0, 0.4
                 Ellipse:
                     pos: self.pos
                     size: self.size
 
-    # --- BOTTOM: Info Area ---
-    BoxLayout:
+    Label:
+        text: root.source
         size_hint_y: 0.15
-        orientation: 'vertical'
-        padding: "2dp"
-        
-        Label:
-            text: root.source
-            font_size: "12sp"
-            color: 0.7, 0.7, 0.7, 1
-            text_size: self.size
-            halign: 'left'
-            valign: 'middle'
+        font_size: "11sp"
+        color: 0.8, 0.8, 0.8, 1
+        text_size: self.size
+        halign: 'left'
+        valign: 'middle'
+        shorten: True
+        shorten_from: 'right'
 
 <RootWidget>:
     orientation: 'vertical'
@@ -129,13 +122,13 @@
         bar_width: "10dp"
         
         RecycleGridLayout:
-            default_size: None, dp(300)
+            default_size: None, dp(280)
             default_size_hint: 1, None
             size_hint_y: None
             height: self.minimum_height
             cols: 2 # 2 columns usually best for phone
-            spacing: "10dp"
-            padding: "10dp"
+            spacing: "6dp"
+            padding: "6dp"
 
     # Footer Actions
     BoxLayout:
