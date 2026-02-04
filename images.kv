@@ -1,0 +1,111 @@
+
+<ImageCard>:
+    orientation: 'vertical'
+    size_hint_y: None
+    height: "300dp"
+    padding: "5dp"
+    spacing: "5dp"
+    canvas.before:
+        Color:
+            rgba: (0.2, 0.2, 0.2, 1) if self.selected else (0.1, 0.1, 0.1, 1)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    AsyncImage:
+        source: root.thumbnail
+        size_hint_y: 0.85
+        allow_stretch: True
+        keep_ratio: True
+        nocache: True
+
+    BoxLayout:
+        size_hint_y: 0.15
+        orientation: 'horizontal'
+        Label:
+            text: root.source
+            font_size: "12sp"
+            color: (0.7, 0.7, 0.7, 1)
+        CheckBox:
+            active: root.selected
+            on_active: root.on_checkbox_active(self, self.active)
+
+<RootWidget>:
+    orientation: 'vertical'
+    canvas.before:
+        Color:
+            rgba: 0.05, 0.05, 0.1, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    # Top Bar
+    BoxLayout:
+        size_hint_y: None
+        height: "60dp"
+        padding: "10dp"
+        spacing: "10dp"
+        canvas.before:
+            Color:
+                rgba: 0.15, 0.15, 0.2, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        TextInput:
+            id: search_input
+            hint_text: "Search..."
+            multiline: False
+            size_hint_x: 0.5
+            on_text_validate: root.do_search()
+
+        Spinner:
+            id: engine_spinner
+            text: 'Bing'
+            values: ('Bing', 'DuckDuckGo', 'Rule34', 'Yandex')
+            size_hint_x: 0.3
+            background_color: 0.3, 0.3, 0.4, 1
+
+        Button:
+            text: "GO"
+            size_hint_x: 0.2
+            on_release: root.do_search()
+            background_color: 0.3, 0.5, 0.8, 1
+
+    # Main Content
+    RecycleView:
+        id: rv
+        viewclass: 'ImageCard'
+        scroll_type: ['bars', 'content']
+        bar_width: "10dp"
+        
+        RecycleGridLayout:
+            default_size: None, dp(300)
+            default_size_hint: 1, None
+            size_hint_y: None
+            height: self.minimum_height
+            cols: 2 # 2 columns for portrait
+            spacing: "10dp"
+            padding: "10dp"
+
+    # Bottom Bar
+    BoxLayout:
+        size_hint_y: None
+        height: "50dp"
+        padding: "5dp"
+        spacing: "10dp"
+        
+        Button:
+            id: load_more_btn
+            text: "Load More results..."
+            on_release: root.load_more()
+            background_color: 0.2, 0.2, 0.2, 1
+            opacity: 0 if not root.has_results else 1
+            disabled: not root.has_results
+
+        Button:
+            id: download_btn
+            text: "Download Selected (0)"
+            on_release: root.download_selected()
+            background_color: 0.2, 0.6, 0.2, 1
+            disabled: True
