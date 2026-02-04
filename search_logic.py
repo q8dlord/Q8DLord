@@ -2,11 +2,8 @@ import requests
 import re
 import json
 import random
-
-# Global headers to mimic a browser
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-}
+import time
+from urllib.parse import unquote
 
 class SearchEngine:
     def __init__(self, query, size=None):
@@ -70,10 +67,14 @@ class BingImageSearch(SearchEngine):
             
             formatted_results = []
             for i, link in enumerate(links):
-                thumb = thumbs[i] if i < len(thumbs) else link
+                # Clean URL
+                full_url = unquote(link)
+                # Ensure thumbnail is available
+                thumb_url = unquote(thumbs[i]) if i < len(thumbs) else full_url
+
                 formatted_results.append({
-                    'image': link,
-                    'thumbnail': thumb, 
+                    'image': full_url,
+                    'thumbnail': thumb_url, 
                     'title': 'Bing Image',
                     'source': 'Bing',
                 })

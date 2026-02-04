@@ -13,6 +13,7 @@ try:
     from kivy.lang import Builder
     from kivy.uix.boxlayout import BoxLayout
     from kivy.uix.modalview import ModalView
+    from kivy.uix.popup import Popup
     from kivy.uix.image import AsyncImage
     from kivy.uix.label import Label
     from kivy.uix.button import Button
@@ -216,37 +217,65 @@ try:
 
         def _download_thread(self, items):
             folder = "."
-            if platform == 'android':
-                from android.storage import primary_external_storage_path
-                folder = os.path.join(primary_external_storage_path(), 'Download', 'ImageSearch')
-            else:
-                folder = os.path.join(os.getcwd(), 'downloads')
-                
-            if not os.path.exists(folder):
-                try: os.makedirs(folder, exist_ok=True)
-                except: pass
-                
-            count = 0
+            success_count = 0
+            errors = []
+
+            # 1. Determine Folder
+            try:
+                if platform == 'android':
+                    from android.storage import primary_external_storage_path
+                    # Try explicit public path first
+                    # /storage/emulated/0/Download/ImageSearch
+                    public_path = os.path.join(primary_external_storage_path(), 'Download', 'ImageSearch')
+                    if not os.path.exists(public_path):
+                        os.makedirs(public_path, exist_ok=True)
+                    folder = public_path
+                else:
+                    folder = os.path.join(os.getcwd(), 'downloads')
+                    if not os.path.exists(folder):
+                        os.makedirs(folder, exist_ok=True)
+            except Exception as e:
+                errors.append(f"Storage Error: {e}")
+                # Fallback to internal app storage (Android only fallback)
+                # folder = ... (not easy to access from Gallery)
+
+            # 2. Download Loop
             for item in items:
                 try:
                     url = item['image']
                     ext = url.split('.')[-1].split('?')[0]
                     if len(ext) > 4 or not ext: ext = "jpg"
-                    fname = f"img_{int(time.time())}_{count}.{ext}"
+                    
+                    fname = f"img_{int(time.time())}_{success_count}.{ext}"
                     path = os.path.join(folder, fname)
                     
+                    # Request with generic headers to avoid blocks
                     res = requests.get(url, headers=Loader.headers, timeout=20)
                     if res.status_code == 200:
                         with open(path, 'wb') as f:
                             f.write(res.content)
-                        count += 1
-                except:
-                    pass
-            Clock.schedule_once(lambda dt: self._finish_download(count))
+                        success_count += 1
+                    else:
+                        errors.append(f"HTTP {res.status_code}: {url[:20]}...")
+                except Exception as e:
+                    errors.append(str(e))
+            
+            # 3. Finish
+            Clock.schedule_once(lambda dt: self._finish_download(success_count, errors, folder))
 
-        def _finish_download(self, count):
+        def _finish_download(self, count, errors, folder):
             self.ids.download_btn.text = f"Saved {count} files"
             self.ids.download_btn.disabled = False
+            
+            # Show Popup Report
+            msg = f"Saved {count} images to:\n{folder}\n"
+            if errors:
+                msg += f"\nErrors ({len(errors)}):\n" + "\n".join(errors[:3])
+                if len(errors) > 3: msg += "\n..."
+            
+            p = Popup(title='Download Report', size_hint=(0.9, 0.6))
+            p.content = Label(text=msg, text_size=(p.width-40, None), valign='middle')
+            p.open()
 
     class ImageSearchApp(App):
         def build(self):
