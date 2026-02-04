@@ -40,35 +40,42 @@ class BingImageSearch(SearchEngine):
     def __init__(self, query, size=None):
         super().__init__(query, size)
         self.offset = 1 
+        self.headers['Accept'] = '*/*'
 
     def _fetch_more(self):
         if self.offset > 1000: return []
         
+        # Bing safe search OFF -> adlt=off
         url = "https://www.bing.com/images/search"
-        # adlt=off disables SafeSearch
         params = {
             'q': self.query,
-            'form': 'HDRSC2',
             'first': self.offset,
-            'scenario': 'ImageBasicHover',
-            'adlt': 'off' 
+            'count': 35,
+            'adlt': 'off', # OFF safe search
+            'form': 'HDRSC2'
         }
         
         try:
             resp = requests.get(url, params=params, headers=self.headers, timeout=10)
             
+            # Bing often gives "murl" (Main URL) and "turl" (Thumbnail URL)
             links = re.findall(r'murl&quot;:&quot;([^&]+)&quot;', resp.text)
             if not links:
                  links = re.findall(r'"murl":"([^"]+)"', resp.text)
             
+            # Thumbnails: turl
+            thumbs = re.findall(r'turl&quot;:&quot;([^&]+)&quot;', resp.text)
+            if not thumbs:
+                thumbs = re.findall(r'"turl":"([^"]+)"', resp.text)
+            
             formatted_results = []
-            for link in links:
+            for i, link in enumerate(links):
+                thumb = thumbs[i] if i < len(thumbs) else link
                 formatted_results.append({
                     'image': link,
-                    'thumbnail': link, 
+                    'thumbnail': thumb, 
                     'title': 'Bing Image',
                     'source': 'Bing',
-                    'url': link
                 })
             
             if not formatted_results: return []
@@ -87,8 +94,7 @@ class DuckDuckGoSearch(SearchEngine):
         if self.offset > 0: return []
         
         try:
-            # First request to get VQD (safe search off might need params here too)
-            # kp=-2 (SafeSearch Off)
+            # Force SAFE SEARCH OFF: kp=-2
             res = requests.get('https://duckduckgo.com/', params={'q': self.query, 'kp': '-2'}, headers=self.headers)
             
             vqd = None
@@ -105,7 +111,7 @@ class DuckDuckGoSearch(SearchEngine):
                 'vqd': vqd,
                 'f': ',,,',
                 'p': '1',
-                'kp': '-2' # Force SafeSearch Off
+                'kp': '-2' # OFF
             }
             self.headers['Referer'] = 'https://duckduckgo.com/'
             res = requests.get(url, params=params, headers=self.headers)
@@ -121,8 +127,7 @@ class DuckDuckGoSearch(SearchEngine):
                     'image': r.get('image'),
                     'thumbnail': r.get('thumbnail'),
                     'title': r.get('title', 'DDG Image'),
-                    'source': 'DuckDuckGo',
-                    'url': r.get('url')
+                    'source': 'DuckDuckGo'
                 })
             
             self.offset = 1
@@ -130,6 +135,7 @@ class DuckDuckGoSearch(SearchEngine):
         except Exception as e:
             print(f"DDG Error: {e}")
             return []
+
 
 from api_client import CLIENT
 
