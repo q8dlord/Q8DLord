@@ -19,7 +19,8 @@ from kivy.loader import Loader
 # Set global headers for Kivy's internal image loader to mimic a browser
 # This fixes the "X" (403 Forbidden) on many sites that block default python/urllib agents
 Loader.headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Referer': 'https://www.google.com/'
 }
 
 # Import our pure python logic
@@ -242,17 +243,28 @@ class RootWidget(BoxLayout):
         threading.Thread(target=self._resolve_and_open, args=(index,), daemon=True).start()
 
     def _resolve_and_open(self, index):
-        item = self.results_data[index]
-        real_url = self.resolve_url(item)
-        # Update data list on main thread? 
-        # The viewer reads self.results_data. ensure atomic update
-        self.results_data[index]['image_url'] = real_url
-        
-        Clock.schedule_once(lambda dt: self._open_viewer_ui(index))
+        try:
+            if index < 0 or index >= len(self.results_data):
+                print(f"Index {index} out of bounds")
+                return
+
+            item = self.results_data[index]
+            real_url = self.resolve_url(item)
+            
+            # Update data list on main thread? 
+            # The viewer reads self.results_data. ensure atomic update
+            self.results_data[index]['image_url'] = real_url
+            
+            Clock.schedule_once(lambda dt: self._open_viewer_ui(index))
+        except Exception as e:
+            print(f"Error in _resolve_and_open: {e}")
 
     def _open_viewer_ui(self, index):
-        viewer = FullScreenViewer(self.results_data, start_index=index)
-        viewer.open()
+        try:
+            viewer = FullScreenViewer(self.results_data, start_index=index)
+            viewer.open()
+        except Exception as e:
+            print(f"Error opening viewer: {e}")
 
     def update_selection(self, url, is_selected):
         if is_selected:
